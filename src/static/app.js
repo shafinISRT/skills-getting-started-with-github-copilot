@@ -4,6 +4,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
 
+  function showMessage(text, type) {
+    messageDiv.textContent = text;
+    messageDiv.className = type;
+    messageDiv.classList.remove("hidden");
+
+    setTimeout(() => {
+      messageDiv.classList.add("hidden");
+    }, 5000);
+  }
+
   // Function to fetch activities from API
   async function fetchActivities() {
     try {
@@ -12,6 +22,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Clear loading message
       activitiesList.innerHTML = "";
+
+      activitySelect.innerHTML = '<option value="">-- Select an activity --</option>';
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
@@ -22,7 +34,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const participantsList = details.participants?.length
           ? `<ul class="participants-list">${details.participants
-              .map((email) => `<li>${email}</li>`)
+              .map(
+                (email) =>
+                  `<li>
+                    <span class="participant-email">${email}</span>
+                    <button
+                      type="button"
+                      class="participant-remove"
+                      data-activity="${name}"
+                      data-email="${email}"
+                      aria-label="Remove ${email} from ${name}"
+                      title="Remove participant"
+                    >
+                      <svg class="participant-remove-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M9 3h6l1 2h5v2H3V5h5l1-2zm1 7h2v8h-2v-8zm4 0h2v8h-2v-8zM7 10h2v8H7v-8zm-1 12h12a2 2 0 0 0 2-2V9H4v11a2 2 0 0 0 2 2z" />
+                      </svg>
+                    </button>
+                  </li>`
+              )
               .join("")}</ul>`
           : `<p class="participants-empty">No participants yet.</p>`;
 
@@ -88,6 +117,37 @@ document.addEventListener("DOMContentLoaded", () => {
       messageDiv.className = "error";
       messageDiv.classList.remove("hidden");
       console.error("Error signing up:", error);
+    }
+  });
+
+  activitiesList.addEventListener("click", async (event) => {
+    const removeButton = event.target.closest(".participant-remove");
+    if (!removeButton) {
+      return;
+    }
+
+    const activity = removeButton.dataset.activity;
+    const email = removeButton.dataset.email;
+
+    try {
+      const response = await fetch(
+        `/activities/${encodeURIComponent(activity)}/participants?email=${encodeURIComponent(email)}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        showMessage(result.message, "success");
+        fetchActivities();
+      } else {
+        showMessage(result.detail || "Failed to remove participant", "error");
+      }
+    } catch (error) {
+      showMessage("Failed to remove participant. Please try again.", "error");
+      console.error("Error removing participant:", error);
     }
   });
 
